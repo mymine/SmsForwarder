@@ -1,16 +1,11 @@
 name: Manager
 
-on:
+	on:
   push:
     branches: [ main ]
-    paths:
-    - 'app/**'
-    - '.github/workflows/manager.yml'
-    - 'gradle.properties'
   pull_request:
-    paths:
-    - 'app/**'
-    - '.github/workflows/manager.yml'
+    branches: [ main ]
+
 
 jobs:
   build:
