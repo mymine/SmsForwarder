@@ -1,6 +1,9 @@
-name: Manager
-
-	on:
+name: Manager	on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+on:
   push:
     branches: [ main ]
   pull_request:
