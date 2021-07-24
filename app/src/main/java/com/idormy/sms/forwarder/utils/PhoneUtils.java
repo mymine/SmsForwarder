@@ -2,6 +2,7 @@ package com.idormy.sms.forwarder.utils;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -327,6 +328,7 @@ public class PhoneUtils {
         Log.d(TAG, "Build.VERSION.SDK_INT = " + Build.VERSION.SDK_INT);
         Log.d(TAG, "Build.VERSION_CODES.LOLLIPOP_MR1 = " + Build.VERSION_CODES.LOLLIPOP_MR1);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+            Log.d(TAG, "1.版本超过5.1，调用系统方法");
             //1.版本超过5.1，调用系统方法
             SubscriptionManager mSubscriptionManager = (SubscriptionManager) context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
             List<SubscriptionInfo> activeSubscriptionInfoList = null;
@@ -354,16 +356,18 @@ public class PhoneUtils {
                         simInfo.mImsi = getReflexMethodWithId(context, "getSubscriberId", String.valueOf(subscriptionInfo.getSubscriptionId()));
                     } catch (MethodNotFoundException ignored) {
                     }
+                    Log.d(TAG, String.valueOf(simInfo));
                     infos.add(simInfo);
                 }
             }
         } else {
+            Log.d(TAG, "2.版本低于5.1的系统，首先调用数据库，看能不能访问到");
             //2.版本低于5.1的系统，首先调用数据库，看能不能访问到
             Uri uri = Uri.parse("content://telephony/siminfo"); //访问raw_contacts表
             ContentResolver resolver = context.getContentResolver();
             Cursor cursor = resolver.query(uri, new String[]{"_id", "icc_id", "sim_id", "display_name", "carrier_name", "name_source", "color", "number", "display_number_format", "data_roaming", "mcc", "mnc"}, null, null, null);
-            if (cursor != null) {
-                while (cursor.moveToNext()) {
+            if (cursor != null && cursor.moveToFirst()) {
+                do {
                     SimInfo simInfo = new SimInfo();
                     simInfo.mCarrierName = cursor.getString(cursor.getColumnIndex("carrier_name"));
                     simInfo.mIccId = cursor.getString(cursor.getColumnIndex("icc_id"));
@@ -377,12 +381,14 @@ public class PhoneUtils {
                         simInfo.mImsi = getReflexMethodWithId(context, "getSubscriberId", String.valueOf(id));
                     } catch (MethodNotFoundException ignored) {
                     }
+                    Log.d(TAG, String.valueOf(simInfo));
                     infos.add(simInfo);
-                }
+                } while (cursor.moveToNext());
                 cursor.close();
             }
         }
 
+        /*Log.d(TAG, "3.通过反射读取卡槽信息，最后通过IMEI去重");
         //3.通过反射读取卡槽信息，最后通过IMEI去重
         for (int i = 0; i < getSimCount(); i++) {
             infos.add(getReflexSimInfo(context, i));
@@ -393,7 +399,9 @@ public class PhoneUtils {
                 simInfos.add(new SimInfo());
             }
         }
-        return simInfos;
+        return simInfos;*/
+
+        return infos;
     }
 
     @Nullable
@@ -519,6 +527,41 @@ public class PhoneUtils {
         return list;
     }
 
+    // 检查权限是否获取（android6.0及以上系统可能默认关闭权限，且没提示）
+    public static void CheckPermission(PackageManager pm, Context that) {
+        //PackageManager pm = getPackageManager();
+        boolean permission_internet = (PackageManager.PERMISSION_GRANTED == pm.checkPermission("android.permission.INTERNET", that.getPackageName()));
+        boolean permission_receive_boot = (PackageManager.PERMISSION_GRANTED == pm.checkPermission("android.permission.RECEIVE_BOOT_COMPLETED", that.getPackageName()));
+        boolean permission_foreground_service = (PackageManager.PERMISSION_GRANTED == pm.checkPermission("android.permission.FOREGROUND_SERVICE", that.getPackageName()));
+        boolean permission_read_external_storage = (PackageManager.PERMISSION_GRANTED == pm.checkPermission("android.permission.READ_EXTERNAL_STORAGE", that.getPackageName()));
+        boolean permission_write_external_storage = (PackageManager.PERMISSION_GRANTED == pm.checkPermission("android.permission.WRITE_EXTERNAL_STORAGE", that.getPackageName()));
+        boolean permission_receive_sms = (PackageManager.PERMISSION_GRANTED == pm.checkPermission("android.permission.RECEIVE_SMS", that.getPackageName()));
+        boolean permission_read_sms = (PackageManager.PERMISSION_GRANTED == pm.checkPermission("android.permission.READ_SMS", that.getPackageName()));
+        boolean permission_send_sms = (PackageManager.PERMISSION_GRANTED == pm.checkPermission("android.permission.SEND_SMS", that.getPackageName()));
+        boolean permission_read_phone_state = (PackageManager.PERMISSION_GRANTED == pm.checkPermission("android.permission.READ_PHONE_STATE", that.getPackageName()));
+        boolean permission_read_phone_numbers = (PackageManager.PERMISSION_GRANTED == pm.checkPermission("android.permission.READ_PHONE_NUMBERS", that.getPackageName()));
+        boolean permission_battery_stats = (PackageManager.PERMISSION_GRANTED == pm.checkPermission("android.permission.BATTERY_STATS", that.getPackageName()));
+
+        if (!(permission_internet && permission_receive_boot && permission_foreground_service &&
+                permission_read_external_storage && permission_write_external_storage &&
+                permission_receive_sms && permission_read_sms && permission_send_sms &&
+                permission_read_phone_state && permission_read_phone_numbers && permission_battery_stats)) {
+            ActivityCompat.requestPermissions((Activity) that, new String[]{
+                    Manifest.permission.INTERNET,
+                    Manifest.permission.RECEIVE_BOOT_COMPLETED,
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    Manifest.permission.RECEIVE_SMS,
+                    Manifest.permission.READ_SMS,
+                    Manifest.permission.SEND_SMS,
+                    Manifest.permission.READ_PHONE_STATE,
+                    Manifest.permission.READ_PHONE_NUMBERS,
+                    Manifest.permission.FOREGROUND_SERVICE,
+                    Manifest.permission.BATTERY_STATS,
+            }, 0x01);
+        }
+    }
+
     /**
      * SIM 卡信息
      */
@@ -593,5 +636,4 @@ public class PhoneUtils {
             super(info);
         }
     }
-
 }

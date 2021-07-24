@@ -12,6 +12,7 @@ import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.RadioGroup;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -28,6 +29,7 @@ import com.idormy.sms.forwarder.model.vo.EmailSettingVo;
 import com.idormy.sms.forwarder.model.vo.QYWXAppSettingVo;
 import com.idormy.sms.forwarder.model.vo.QYWXGroupRobotSettingVo;
 import com.idormy.sms.forwarder.model.vo.ServerChanSettingVo;
+import com.idormy.sms.forwarder.model.vo.SmsSettingVo;
 import com.idormy.sms.forwarder.model.vo.TelegramSettingVo;
 import com.idormy.sms.forwarder.model.vo.WebNotifySettingVo;
 import com.idormy.sms.forwarder.sender.SenderBarkMsg;
@@ -36,6 +38,7 @@ import com.idormy.sms.forwarder.sender.SenderMailMsg;
 import com.idormy.sms.forwarder.sender.SenderQyWxAppMsg;
 import com.idormy.sms.forwarder.sender.SenderQyWxGroupRobotMsg;
 import com.idormy.sms.forwarder.sender.SenderServerChanMsg;
+import com.idormy.sms.forwarder.sender.SenderSmsMsg;
 import com.idormy.sms.forwarder.sender.SenderTelegramMsg;
 import com.idormy.sms.forwarder.sender.SenderUtil;
 import com.idormy.sms.forwarder.sender.SenderWebNotifyMsg;
@@ -53,6 +56,7 @@ import static com.idormy.sms.forwarder.model.SenderModel.TYPE_EMAIL;
 import static com.idormy.sms.forwarder.model.SenderModel.TYPE_QYWX_APP;
 import static com.idormy.sms.forwarder.model.SenderModel.TYPE_QYWX_GROUP_ROBOT;
 import static com.idormy.sms.forwarder.model.SenderModel.TYPE_SERVER_CHAN;
+import static com.idormy.sms.forwarder.model.SenderModel.TYPE_SMS;
 import static com.idormy.sms.forwarder.model.SenderModel.TYPE_TELEGRAM;
 import static com.idormy.sms.forwarder.model.SenderModel.TYPE_WEB_NOTIFY;
 
@@ -132,6 +136,9 @@ public class SenderActivity extends AppCompatActivity {
                         break;
                     case TYPE_TELEGRAM:
                         setTelegram(senderModel);
+                        break;
+                    case TYPE_SMS:
+                        setSms(senderModel);
                         break;
                     default:
                         Toast.makeText(SenderActivity.this, "异常的发送方类型，自动删除！", Toast.LENGTH_LONG).show();
@@ -216,6 +223,9 @@ public class SenderActivity extends AppCompatActivity {
                         break;
                     case TYPE_TELEGRAM:
                         setTelegram(null);
+                        break;
+                    case TYPE_SMS:
+                        setSms(null);
                         break;
                     default:
                         Toast.makeText(SenderActivity.this, "暂不支持这种转发！", Toast.LENGTH_LONG).show();
@@ -327,7 +337,7 @@ public class SenderActivity extends AppCompatActivity {
                 Boolean atAll = switchDingdingAtAll.isChecked();
                 if (token != null && !token.isEmpty()) {
                     try {
-                        SenderDingdingMsg.sendMsg(handler, token, secret, atMobiles, atAll, "测试内容(content)@" + (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())));
+                        SenderDingdingMsg.sendMsg(0, handler, token, secret, atMobiles, atAll, "测试内容(content)@" + (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())));
                     } catch (Exception e) {
                         Toast.makeText(SenderActivity.this, "发送失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
                         e.printStackTrace();
@@ -363,6 +373,8 @@ public class SenderActivity extends AppCompatActivity {
         if (emailSettingVo != null) switchEmailSSl.setChecked(emailSettingVo.getSsl());
         final EditText editTextEmailFromAdd = view1.findViewById(R.id.editTextEmailFromAdd);
         if (emailSettingVo != null) editTextEmailFromAdd.setText(emailSettingVo.getFromEmail());
+        final EditText editTextEmailNickname = view1.findViewById(R.id.editTextEmailNickname);
+        if (emailSettingVo != null) editTextEmailNickname.setText(emailSettingVo.getNickname());
         final EditText editTextEmailPsw = view1.findViewById(R.id.editTextEmailPsw);
         if (emailSettingVo != null) editTextEmailPsw.setText(emailSettingVo.getPwd());
         final EditText editTextEmailToAdd = view1.findViewById(R.id.editTextEmailToAdd);
@@ -392,6 +404,7 @@ public class SenderActivity extends AppCompatActivity {
                             editTextEmailPort.getText().toString(),
                             switchEmailSSl.isChecked(),
                             editTextEmailFromAdd.getText().toString(),
+                            editTextEmailNickname.getText().toString(),
                             editTextEmailPsw.getText().toString(),
                             editTextEmailToAdd.getText().toString()
                     );
@@ -408,6 +421,7 @@ public class SenderActivity extends AppCompatActivity {
                             editTextEmailPort.getText().toString(),
                             switchEmailSSl.isChecked(),
                             editTextEmailFromAdd.getText().toString(),
+                            editTextEmailNickname.getText().toString(),
                             editTextEmailPsw.getText().toString(),
                             editTextEmailToAdd.getText().toString()
                     );
@@ -442,15 +456,21 @@ public class SenderActivity extends AppCompatActivity {
                 String fromemail = editTextEmailFromAdd.getText().toString();
                 String pwd = editTextEmailPsw.getText().toString();
                 String toemail = editTextEmailToAdd.getText().toString();
+
+                String nickname = editTextEmailNickname.getText().toString();
+                if (nickname == null || nickname.equals("")) {
+                    nickname = "SmsForwarder";
+                }
+
                 if (!host.isEmpty() && !port.isEmpty() && !fromemail.isEmpty() && !pwd.isEmpty() && !toemail.isEmpty()) {
                     try {
-                        SenderMailMsg.sendEmail(handler, host, port, ssl, fromemail, pwd, toemail, "SmsForwarder Title", "测试内容(content)@" + (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())));
+                        SenderMailMsg.sendEmail(0, handler, host, port, ssl, fromemail, nickname, pwd, toemail, "SmsForwarder Title", "测试内容(content)@" + (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())));
                     } catch (Exception e) {
                         Toast.makeText(SenderActivity.this, "发送失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
                         e.printStackTrace();
                     }
                 } else {
-                    Toast.makeText(SenderActivity.this, "token 不能为空", Toast.LENGTH_LONG).show();
+                    Toast.makeText(SenderActivity.this, "邮箱参数不完整", Toast.LENGTH_LONG).show();
                 }
             }
         });
@@ -534,7 +554,7 @@ public class SenderActivity extends AppCompatActivity {
                 String barkServer = editTextBarkServer.getText().toString();
                 if (!barkServer.isEmpty()) {
                     try {
-                        SenderBarkMsg.sendMsg(handler, barkServer, "19999999999", "【京东】验证码为387481（切勿将验证码告知他人），请在页面中输入完成验证，如有问题请点击 ihelp.jd.com 联系京东客服");
+                        SenderBarkMsg.sendMsg(0, handler, barkServer, "19999999999", "【京东】验证码为387481（切勿将验证码告知他人），请在页面中输入完成验证，如有问题请点击 ihelp.jd.com 联系京东客服");
                     } catch (Exception e) {
                         Toast.makeText(SenderActivity.this, "发送失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
                         e.printStackTrace();
@@ -625,7 +645,7 @@ public class SenderActivity extends AppCompatActivity {
                 String serverchanServer = editTextServerChanSendKey.getText().toString();
                 if (!serverchanServer.isEmpty()) {
                     try {
-                        SenderServerChanMsg.sendMsg(handler, serverchanServer, "19999999999", "【京东】验证码为387481（切勿将验证码告知他人），请在页面中输入完成验证，如有问题请点击 ihelp.jd.com 联系京东客服");
+                        SenderServerChanMsg.sendMsg(0, handler, serverchanServer, "19999999999", "【京东】验证码为387481（切勿将验证码告知他人），请在页面中输入完成验证，如有问题请点击 ihelp.jd.com 联系京东客服");
                     } catch (Exception e) {
                         Toast.makeText(SenderActivity.this, "发送失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
                         e.printStackTrace();
@@ -652,12 +672,12 @@ public class SenderActivity extends AppCompatActivity {
 
         final EditText editTextWebNotifyName = view1.findViewById(R.id.editTextWebNotifyName);
         if (senderModel != null) editTextWebNotifyName.setText(senderModel.getName());
-        final EditText editTextWebNotifyToken = view1.findViewById(R.id.editTextWebNotifyToken);
-        if (webNotifySettingVo != null)
-            editTextWebNotifyToken.setText(webNotifySettingVo.getToken());
+        final EditText editTextWebNotifyWebServer = view1.findViewById(R.id.editTextWebNotifyWebServer);
+        if (webNotifySettingVo != null) editTextWebNotifyWebServer.setText(webNotifySettingVo.getWebServer());
         final EditText editTextWebNotifySecret = view1.findViewById(R.id.editTextWebNotifySecret);
-        if (webNotifySettingVo != null)
-            editTextWebNotifySecret.setText(webNotifySettingVo.getSecret());
+        if (webNotifySettingVo != null) editTextWebNotifySecret.setText(webNotifySettingVo.getSecret());
+        final RadioGroup radioGroupWebNotifyMethod = (RadioGroup) view1.findViewById(R.id.radioGroupWebNotifyMethod);
+        if (webNotifySettingVo != null) radioGroupWebNotifyMethod.check(webNotifySettingVo.getWebNotifyMethodCheckId());
 
         Button buttonbebnotifyok = view1.findViewById(R.id.buttonbebnotifyok);
         Button buttonbebnotifydel = view1.findViewById(R.id.buttonbebnotifydel);
@@ -679,8 +699,9 @@ public class SenderActivity extends AppCompatActivity {
                     newSenderModel.setType(TYPE_WEB_NOTIFY);
                     newSenderModel.setStatus(STATUS_ON);
                     WebNotifySettingVo webNotifySettingVoNew = new WebNotifySettingVo(
-                            editTextWebNotifyToken.getText().toString(),
-                            editTextWebNotifySecret.getText().toString()
+                            editTextWebNotifyWebServer.getText().toString(),
+                            editTextWebNotifySecret.getText().toString(),
+                            (radioGroupWebNotifyMethod.getCheckedRadioButtonId() == R.id.radioWebNotifyMethodGet ? "GET" : "POST")
                     );
                     newSenderModel.setJsonSetting(JSON.toJSONString(webNotifySettingVoNew));
                     SenderUtil.addSender(newSenderModel);
@@ -691,8 +712,9 @@ public class SenderActivity extends AppCompatActivity {
                     senderModel.setType(TYPE_WEB_NOTIFY);
                     senderModel.setStatus(STATUS_ON);
                     WebNotifySettingVo webNotifySettingVoNew = new WebNotifySettingVo(
-                            editTextWebNotifyToken.getText().toString(),
-                            editTextWebNotifySecret.getText().toString()
+                            editTextWebNotifyWebServer.getText().toString(),
+                            editTextWebNotifySecret.getText().toString(),
+                            (radioGroupWebNotifyMethod.getCheckedRadioButtonId() == R.id.radioWebNotifyMethodGet ? "GET" : "POST")
                     );
                     senderModel.setJsonSetting(JSON.toJSONString(webNotifySettingVoNew));
                     SenderUtil.updateSender(senderModel);
@@ -718,17 +740,18 @@ public class SenderActivity extends AppCompatActivity {
         buttonbebnotifytest.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                String token = editTextWebNotifyToken.getText().toString();
+                String webServer = editTextWebNotifyWebServer.getText().toString();
                 String secret = editTextWebNotifySecret.getText().toString();
-                if (!token.isEmpty()) {
+                String method = radioGroupWebNotifyMethod.getCheckedRadioButtonId() == R.id.radioWebNotifyMethodGet ? "GET" : "POST";
+                if (!webServer.isEmpty()) {
                     try {
-                        SenderWebNotifyMsg.sendMsg(handler, token, secret, "SmsForwarder Title", "测试内容(content)@" + (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())));
+                        SenderWebNotifyMsg.sendMsg(0, handler, webServer, secret, method, "SmsForwarder Title", "测试内容(content)@" + (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())));
                     } catch (Exception e) {
                         Toast.makeText(SenderActivity.this, "发送失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
                         e.printStackTrace();
                     }
                 } else {
-                    Toast.makeText(SenderActivity.this, "token 不能为空", Toast.LENGTH_LONG).show();
+                    Toast.makeText(SenderActivity.this, "WebServer 不能为空", Toast.LENGTH_LONG).show();
                 }
             }
         });
@@ -813,7 +836,7 @@ public class SenderActivity extends AppCompatActivity {
                 String webHook = editTextQYWXGroupRobotWebHook.getText().toString();
                 if (!webHook.isEmpty()) {
                     try {
-                        SenderQyWxGroupRobotMsg.sendMsg(handler, webHook, "SmsForwarder Title", "测试内容(content)@" + (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())));
+                        SenderQyWxGroupRobotMsg.sendMsg(0, handler, webHook, "SmsForwarder Title", "测试内容(content)@" + (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())));
                     } catch (Exception e) {
                         Toast.makeText(SenderActivity.this, "发送失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
                         e.printStackTrace();
@@ -944,7 +967,7 @@ public class SenderActivity extends AppCompatActivity {
                 //Boolean atAll = switchQYWXAppAtAll.isChecked();
                 if (toUser != null && !toUser.isEmpty()) {
                     try {
-                        SenderQyWxAppMsg.sendMsg(handler, cropID, agentID, secret, toUser, "测试内容(content)@" + (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())), true);
+                        SenderQyWxAppMsg.sendMsg(0, handler, cropID, agentID, secret, toUser, "测试内容(content)@" + (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())), true);
                     } catch (Exception e) {
                         Toast.makeText(SenderActivity.this, "发送失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
                         e.printStackTrace();
@@ -1042,13 +1065,118 @@ public class SenderActivity extends AppCompatActivity {
                 String chatId = editTextTelegramChatId.getText().toString();
                 if (!apiToken.isEmpty() && !chatId.isEmpty()) {
                     try {
-                        SenderTelegramMsg.sendMsg(handler, apiToken, chatId, "19999999999", "【京东】验证码为387481（切勿将验证码告知他人），请在页面中输入完成验证，如有问题请点击 ihelp.jd.com 联系京东客服");
+                        SenderTelegramMsg.sendMsg(0, handler, apiToken, chatId, "19999999999", "【京东】验证码为387481（切勿将验证码告知他人），请在页面中输入完成验证，如有问题请点击 ihelp.jd.com 联系京东客服");
                     } catch (Exception e) {
                         Toast.makeText(SenderActivity.this, "发送失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
                         e.printStackTrace();
                     }
                 } else {
                     Toast.makeText(SenderActivity.this, "机器人的ApiToken 和 被通知人的ChatId 都不能为空", Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+    }
+
+    //Sms
+    private void setSms(final SenderModel senderModel) {
+        SmsSettingVo smsSettingVo = null;
+        //try phrase json setting
+        if (senderModel != null) {
+            String jsonSettingStr = senderModel.getJsonSetting();
+            Log.d(TAG, "jsonSettingStr = " + jsonSettingStr);
+            if (jsonSettingStr != null) {
+                smsSettingVo = JSON.parseObject(jsonSettingStr, SmsSettingVo.class);
+            }
+        }
+
+        final AlertDialog.Builder alertDialog71 = new AlertDialog.Builder(SenderActivity.this);
+        View view1 = View.inflate(SenderActivity.this, R.layout.alert_dialog_setview_sms, null);
+
+        final EditText editTextSmsName = view1.findViewById(R.id.editTextSmsName);
+        if (senderModel != null) editTextSmsName.setText(senderModel.getName());
+        final RadioGroup radioGroupSmsSimSlot = (RadioGroup) view1.findViewById(R.id.radioGroupSmsSimSlot);
+        if (smsSettingVo != null) radioGroupSmsSimSlot.check(smsSettingVo.getSmsSimSlotCheckId());
+        final EditText editTextSmsMobiles = view1.findViewById(R.id.editTextSmsMobiles);
+        if (smsSettingVo != null) editTextSmsMobiles.setText(smsSettingVo.getMobiles());
+        final Switch switchSmsOnlyNoNetwork = view1.findViewById(R.id.switchSmsOnlyNoNetwork);
+        if (smsSettingVo != null) switchSmsOnlyNoNetwork.setChecked(smsSettingVo.getOnlyNoNetwork());
+
+        Button buttonSmsOk = view1.findViewById(R.id.buttonSmsOk);
+        Button buttonSmsDel = view1.findViewById(R.id.buttonSmsDel);
+        Button buttonSmsTest = view1.findViewById(R.id.buttonSmsTest);
+        alertDialog71
+                .setTitle(R.string.setsmstitle)
+                .setIcon(R.mipmap.sms)
+                .setView(view1)
+                .create();
+        final AlertDialog show = alertDialog71.show();
+
+        buttonSmsOk.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+
+                if (senderModel == null) {
+                    SenderModel newSenderModel = new SenderModel();
+                    newSenderModel.setName(editTextSmsName.getText().toString());
+                    newSenderModel.setType(TYPE_SMS);
+                    newSenderModel.setStatus(STATUS_ON);
+                    SmsSettingVo smsSettingVoNew = new SmsSettingVo(
+                            newSenderModel.getSmsSimSlotId(radioGroupSmsSimSlot.getCheckedRadioButtonId()),
+                            editTextSmsMobiles.getText().toString(),
+                            switchSmsOnlyNoNetwork.isChecked()
+                    );
+                    newSenderModel.setJsonSetting(JSON.toJSONString(smsSettingVoNew));
+                    SenderUtil.addSender(newSenderModel);
+                    initSenders();
+                    adapter.add(senderModels);
+                } else {
+                    senderModel.setName(editTextSmsName.getText().toString());
+                    senderModel.setType(TYPE_SMS);
+                    senderModel.setStatus(STATUS_ON);
+                    SmsSettingVo smsSettingVoNew = new SmsSettingVo(
+                            senderModel.getSmsSimSlotId(radioGroupSmsSimSlot.getCheckedRadioButtonId()),
+                            editTextSmsMobiles.getText().toString(),
+                            switchSmsOnlyNoNetwork.isChecked()
+                    );
+                    senderModel.setJsonSetting(JSON.toJSONString(smsSettingVoNew));
+                    SenderUtil.updateSender(senderModel);
+                    initSenders();
+                    adapter.update(senderModels);
+                }
+
+                show.dismiss();
+
+            }
+        });
+        buttonSmsDel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (senderModel != null) {
+                    SenderUtil.delSender(senderModel.getId());
+                    initSenders();
+                    adapter.del(senderModels);
+                }
+                show.dismiss();
+            }
+        });
+        buttonSmsTest.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                int simSlot = 0;
+                if (R.id.btnSmsSimSlot2 == radioGroupSmsSimSlot.getCheckedRadioButtonId()) {
+                    simSlot = 1;
+                }
+                String mobiles = editTextSmsMobiles.getText().toString();
+                Boolean onlyNoNetwork = switchSmsOnlyNoNetwork.isChecked();
+                if (!mobiles.isEmpty() && !mobiles.isEmpty()) {
+                    try {
+                        SenderSmsMsg.sendMsg(0, handler, simSlot, mobiles, onlyNoNetwork, "19999999999", "【京东】验证码为387481（切勿将验证码告知他人），请在页面中输入完成验证，如有问题请点击 ihelp.jd.com 联系京东客服");
+                    } catch (Exception e) {
+                        Toast.makeText(SenderActivity.this, "发送失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
+                        e.printStackTrace();
+                    }
+                } else {
+                    Toast.makeText(SenderActivity.this, "接收手机号不能为空", Toast.LENGTH_LONG).show();
                 }
             }
         });

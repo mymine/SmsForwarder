@@ -5,6 +5,9 @@ import android.os.Handler;
 import android.util.Base64;
 import android.util.Log;
 
+import com.idormy.sms.forwarder.utils.CertUtils;
+import com.idormy.sms.forwarder.utils.LogUtil;
+
 import java.io.IOException;
 import java.net.URLEncoder;
 
@@ -13,7 +16,6 @@ import javax.crypto.spec.SecretKeySpec;
 
 import okhttp3.Call;
 import okhttp3.Callback;
-import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -26,45 +28,59 @@ public class SenderWebNotifyMsg {
 
     static String TAG = "SenderWebNotifyMsg";
 
-    public static void sendMsg(final Handler handError, String token, String secret, String from, String content) throws Exception {
-        Log.i(TAG, "sendMsg token:" + token + " from:" + from + " content:" + content);
+    public static void sendMsg(final long logId, final Handler handError, String webServer, String secret, String method, String from, String content) throws Exception {
+        Log.i(TAG, "sendMsg webServer:" + webServer + " from:" + from + " content:" + content);
 
-        if (token == null || token.isEmpty()) {
+        if (webServer == null || webServer.isEmpty()) {
             return;
         }
 
-        OkHttpClient client = new OkHttpClient().newBuilder()
-                .build();
-        MediaType mediaType = MediaType.parse("text/plain");
-        MultipartBody.Builder builder = new MultipartBody.Builder().setType(MultipartBody.FORM)
-                .addFormDataPart("from", from)
-                .addFormDataPart("content", content);
-
+        Long timestamp = System.currentTimeMillis();
+        String sign = "";
         if (secret != null && !secret.isEmpty()) {
-            Long timestamp = System.currentTimeMillis();
-
             String stringToSign = timestamp + "\n" + secret;
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(secret.getBytes("UTF-8"), "HmacSHA256"));
             byte[] signData = mac.doFinal(stringToSign.getBytes("UTF-8"));
-            String sign = URLEncoder.encode(new String(Base64.encode(signData, Base64.NO_WRAP)), "UTF-8");
+            sign = URLEncoder.encode(new String(Base64.encode(signData, Base64.NO_WRAP)), "UTF-8");
             Log.i(TAG, "sign:" + sign);
-            builder.addFormDataPart("timestamp", String.valueOf(timestamp));
-            builder.addFormDataPart("sign", sign);
         }
 
-        RequestBody body = builder.build();
-        Request request = new Request.Builder()
-                .url(token)
-                .method("POST", body)
+        Request request;
+        if (method.equals("GET")) {
+            webServer += (webServer.contains("?") ? "&" : "?") + "from=" + URLEncoder.encode(from, "UTF-8");
+            webServer += "&content=" + URLEncoder.encode(content, "UTF-8");
+            if (secret != null && !secret.isEmpty()) {
+                webServer += "&timestamp=" + timestamp;
+                webServer += "&sign=" + sign;
+            }
+
+            Log.d(TAG, "method = GET, Url = " + webServer);
+            request = new Request.Builder().url(webServer).get().build();
+        } else {
+            MultipartBody.Builder builder = new MultipartBody.Builder().setType(MultipartBody.FORM)
+                    .addFormDataPart("from", from)
+                    .addFormDataPart("content", content);
+            if (secret != null && !secret.isEmpty()) {
+                builder.addFormDataPart("timestamp", String.valueOf(timestamp));
+                builder.addFormDataPart("sign", sign);
+            }
+
+            RequestBody body = builder.build();
+            Log.d(TAG, "method = POST, Body = " + body);
+            request = new Request.Builder().url(webServer).method("POST", body).build();
+        }
+
+        OkHttpClient client = new OkHttpClient().newBuilder()
+                //忽略https证书
+                .sslSocketFactory(CertUtils.getSSLSocketFactory(), CertUtils.getX509TrustManager())
+                .hostnameVerifier(CertUtils.getHostnameVerifier())
                 .build();
-//        Response response = client.newCall(request).execute();
-
-
         Call call = client.newCall(request);
         call.enqueue(new Callback() {
             @Override
             public void onFailure(Call call, final IOException e) {
+                LogUtil.updateLog(logId, 0, e.getMessage());
                 Log.d(TAG, "onFailure：" + e.getMessage());
 
                 if (handError != null) {
@@ -81,7 +97,14 @@ public class SenderWebNotifyMsg {
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 final String responseStr = response.body().string();
-                Log.d(TAG, "Code：" + String.valueOf(response.code()) + responseStr);
+                Log.d(TAG, "Code：" + response.code() + " Response：" + responseStr);
+
+                //返回http状态200即为成功
+                if (200 == response.code()) {
+                    LogUtil.updateLog(logId, 1, responseStr);
+                } else {
+                    LogUtil.updateLog(logId, 0, responseStr);
+                }
 
                 if (handError != null) {
                     android.os.Message msg = new android.os.Message();
@@ -90,7 +113,6 @@ public class SenderWebNotifyMsg {
                     bundle.putString("DATA", "发送状态：" + responseStr);
                     msg.setData(bundle);
                     handError.sendMessage(msg);
-                    Log.d(TAG, "Coxxyyde：" + String.valueOf(response.code()) + responseStr);
                 }
 
             }

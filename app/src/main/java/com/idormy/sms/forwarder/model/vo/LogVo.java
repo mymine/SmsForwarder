@@ -10,8 +10,13 @@ public class LogVo {
     private String rule;
     private int senderImageId;
     private String time;
+    private int forwardStatus;
+    private String forwardResponse;
 
-    public LogVo(Long id, String from, String content, String simInfo, String time, String rule, int senderImageId) {
+    public LogVo() {
+    }
+
+    public LogVo(Long id, String from, String content, String simInfo, String time, String rule, int senderImageId, int forwardStatus, String forwardResponse) {
         this.id = id;
         this.from = from;
         this.content = content;
@@ -19,10 +24,8 @@ public class LogVo {
         this.time = time;
         this.rule = rule;
         this.senderImageId = senderImageId;
-    }
-
-    public LogVo() {
-
+        this.forwardStatus = forwardStatus;
+        this.forwardResponse = forwardResponse;
     }
 
     public Long getId() {
@@ -65,6 +68,10 @@ public class LogVo {
         return time;
     }
 
+    public String getForwardResponse() {
+        return forwardResponse;
+    }
+
     public int getSenderImageId() {
         return senderImageId;
     }
@@ -80,5 +87,13 @@ public class LogVo {
         }
 
         return R.mipmap.sim1;
+    }
+
+    public int getStatusImageId() {
+        if (this.forwardStatus == 1) {
+            return R.drawable.ic_round_check;
+        }
+
+        return R.drawable.ic_round_cancel;
     }
 }

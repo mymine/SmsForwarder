@@ -14,10 +14,12 @@ import com.idormy.sms.forwarder.model.vo.EmailSettingVo;
 import com.idormy.sms.forwarder.model.vo.QYWXAppSettingVo;
 import com.idormy.sms.forwarder.model.vo.QYWXGroupRobotSettingVo;
 import com.idormy.sms.forwarder.model.vo.ServerChanSettingVo;
+import com.idormy.sms.forwarder.model.vo.SmsSettingVo;
 import com.idormy.sms.forwarder.model.vo.SmsVo;
 import com.idormy.sms.forwarder.model.vo.TelegramSettingVo;
 import com.idormy.sms.forwarder.model.vo.WebNotifySettingVo;
 import com.idormy.sms.forwarder.utils.LogUtil;
+import com.idormy.sms.forwarder.utils.NetUtil;
 import com.idormy.sms.forwarder.utils.RuleUtil;
 
 import java.util.List;
@@ -28,6 +30,7 @@ import static com.idormy.sms.forwarder.model.SenderModel.TYPE_EMAIL;
 import static com.idormy.sms.forwarder.model.SenderModel.TYPE_QYWX_APP;
 import static com.idormy.sms.forwarder.model.SenderModel.TYPE_QYWX_GROUP_ROBOT;
 import static com.idormy.sms.forwarder.model.SenderModel.TYPE_SERVER_CHAN;
+import static com.idormy.sms.forwarder.model.SenderModel.TYPE_SMS;
 import static com.idormy.sms.forwarder.model.SenderModel.TYPE_TELEGRAM;
 import static com.idormy.sms.forwarder.model.SenderModel.TYPE_WEB_NOTIFY;
 
@@ -57,8 +60,8 @@ public class SendUtil {
                         List<SenderModel> senderModels = SenderUtil.getSender(ruleModel.getSenderId(), null);
                         for (SenderModel senderModel : senderModels
                         ) {
-                            LogUtil.addLog(new LogModel(smsVo.getMobile(), smsVo.getContent(), smsVo.getSimInfo(), senderModel.getId()));
-                            SendUtil.senderSendMsgNoHandError(smsVo, senderModel);
+                            long logId = LogUtil.addLog(new LogModel(smsVo.getMobile(), smsVo.getContent(), smsVo.getSimInfo(), ruleModel.getId()));
+                            SendUtil.senderSendMsgNoHandError(smsVo, senderModel, logId);
                         }
                     }
                 } catch (Exception e) {
@@ -91,15 +94,15 @@ public class SendUtil {
 
         for (SenderModel senderModel : senderModels
         ) {
-            SendUtil.senderSendMsg(handError, smsVo, senderModel);
+            SendUtil.senderSendMsg(handError, smsVo, senderModel, 0);
         }
     }
 
-    public static void senderSendMsgNoHandError(SmsVo smsVo, SenderModel senderModel) {
-        SendUtil.senderSendMsg(null, smsVo, senderModel);
+    public static void senderSendMsgNoHandError(SmsVo smsVo, SenderModel senderModel, long logId) {
+        SendUtil.senderSendMsg(null, smsVo, senderModel, logId);
     }
 
-    public static void senderSendMsg(Handler handError, SmsVo smsVo, SenderModel senderModel) {
+    public static void senderSendMsg(Handler handError, SmsVo smsVo, SenderModel senderModel, long logId) {
 
         Log.i(TAG, "senderSendMsg smsVo:" + smsVo + "senderModel:" + senderModel);
         switch (senderModel.getType()) {
@@ -109,8 +112,9 @@ public class SendUtil {
                     DingDingSettingVo dingDingSettingVo = JSON.parseObject(senderModel.getJsonSetting(), DingDingSettingVo.class);
                     if (dingDingSettingVo != null) {
                         try {
-                            SenderDingdingMsg.sendMsg(handError, dingDingSettingVo.getToken(), dingDingSettingVo.getSecret(), dingDingSettingVo.getAtMobils(), dingDingSettingVo.getAtAll(), smsVo.getSmsVoForSend());
+                            SenderDingdingMsg.sendMsg(logId, handError, dingDingSettingVo.getToken(), dingDingSettingVo.getSecret(), dingDingSettingVo.getAtMobils(), dingDingSettingVo.getAtAll(), smsVo.getSmsVoForSend());
                         } catch (Exception e) {
+                            LogUtil.updateLog(logId, 0, e.getMessage());
                             Log.e(TAG, "senderSendMsg: dingding error " + e.getMessage());
                         }
                     }
@@ -123,9 +127,10 @@ public class SendUtil {
                     EmailSettingVo emailSettingVo = JSON.parseObject(senderModel.getJsonSetting(), EmailSettingVo.class);
                     if (emailSettingVo != null) {
                         try {
-                            SenderMailMsg.sendEmail(handError, emailSettingVo.getHost(), emailSettingVo.getPort(), emailSettingVo.getSsl(), emailSettingVo.getFromEmail(),
+                            SenderMailMsg.sendEmail(logId, handError, emailSettingVo.getHost(), emailSettingVo.getPort(), emailSettingVo.getSsl(), emailSettingVo.getFromEmail(), emailSettingVo.getNickname(),
                                     emailSettingVo.getPwd(), emailSettingVo.getToEmail(), smsVo.getMobile(), smsVo.getSmsVoForSend());
                         } catch (Exception e) {
+                            LogUtil.updateLog(logId, 0, e.getMessage());
                             Log.e(TAG, "senderSendMsg: SenderMailMsg error " + e.getMessage());
                         }
                     }
@@ -138,8 +143,9 @@ public class SendUtil {
                     BarkSettingVo barkSettingVo = JSON.parseObject(senderModel.getJsonSetting(), BarkSettingVo.class);
                     if (barkSettingVo != null) {
                         try {
-                            SenderBarkMsg.sendMsg(handError, barkSettingVo.getServer(), smsVo.getMobile(), smsVo.getSmsVoForSend());
+                            SenderBarkMsg.sendMsg(logId, handError, barkSettingVo.getServer(), smsVo.getMobile(), smsVo.getSmsVoForSend());
                         } catch (Exception e) {
+                            LogUtil.updateLog(logId, 0, e.getMessage());
                             Log.e(TAG, "senderSendMsg: SenderBarkMsg error " + e.getMessage());
                         }
                     }
@@ -152,8 +158,9 @@ public class SendUtil {
                     WebNotifySettingVo webNotifySettingVo = JSON.parseObject(senderModel.getJsonSetting(), WebNotifySettingVo.class);
                     if (webNotifySettingVo != null) {
                         try {
-                            SenderWebNotifyMsg.sendMsg(handError, webNotifySettingVo.getToken(), webNotifySettingVo.getSecret(), smsVo.getMobile(), smsVo.getSmsVoForSend());
+                            SenderWebNotifyMsg.sendMsg(logId, handError, webNotifySettingVo.getWebServer(), webNotifySettingVo.getSecret(), webNotifySettingVo.getMethod(), smsVo.getMobile(), smsVo.getSmsVoForSend());
                         } catch (Exception e) {
+                            LogUtil.updateLog(logId, 0, e.getMessage());
                             Log.e(TAG, "senderSendMsg: SenderWebNotifyMsg error " + e.getMessage());
                         }
                     }
@@ -166,8 +173,9 @@ public class SendUtil {
                     QYWXGroupRobotSettingVo qywxGroupRobotSettingVo = JSON.parseObject(senderModel.getJsonSetting(), QYWXGroupRobotSettingVo.class);
                     if (qywxGroupRobotSettingVo != null) {
                         try {
-                            SenderQyWxGroupRobotMsg.sendMsg(handError, qywxGroupRobotSettingVo.getWebHook(), smsVo.getMobile(), smsVo.getSmsVoForSend());
+                            SenderQyWxGroupRobotMsg.sendMsg(logId, handError, qywxGroupRobotSettingVo.getWebHook(), smsVo.getMobile(), smsVo.getSmsVoForSend());
                         } catch (Exception e) {
+                            LogUtil.updateLog(logId, 0, e.getMessage());
                             Log.e(TAG, "senderSendMsg: SenderQyWxGroupRobotMsg error " + e.getMessage());
                         }
                     }
@@ -180,8 +188,9 @@ public class SendUtil {
                     QYWXAppSettingVo qYWXAppSettingVo = JSON.parseObject(senderModel.getJsonSetting(), QYWXAppSettingVo.class);
                     if (qYWXAppSettingVo != null) {
                         try {
-                            SenderQyWxAppMsg.sendMsg(handError, qYWXAppSettingVo.getCorpID(), qYWXAppSettingVo.getAgentID(), qYWXAppSettingVo.getSecret(), qYWXAppSettingVo.getToUser(), smsVo.getSmsVoForSend(), false);
+                            SenderQyWxAppMsg.sendMsg(logId, handError, qYWXAppSettingVo.getCorpID(), qYWXAppSettingVo.getAgentID(), qYWXAppSettingVo.getSecret(), qYWXAppSettingVo.getToUser(), smsVo.getSmsVoForSend(), false);
                         } catch (Exception e) {
+                            LogUtil.updateLog(logId, 0, e.getMessage());
                             Log.e(TAG, "senderSendMsg: qywx_app error " + e.getMessage());
                         }
                     }
@@ -194,8 +203,9 @@ public class SendUtil {
                     ServerChanSettingVo serverChanSettingVo = JSON.parseObject(senderModel.getJsonSetting(), ServerChanSettingVo.class);
                     if (serverChanSettingVo != null) {
                         try {
-                            SenderServerChanMsg.sendMsg(handError, serverChanSettingVo.getSendKey(), smsVo.getMobile(), smsVo.getSmsVoForSend());
+                            SenderServerChanMsg.sendMsg(logId, handError, serverChanSettingVo.getSendKey(), smsVo.getMobile(), smsVo.getSmsVoForSend());
                         } catch (Exception e) {
+                            LogUtil.updateLog(logId, 0, e.getMessage());
                             Log.e(TAG, "senderSendMsg: SenderServerChanMsg error " + e.getMessage());
                         }
                     }
@@ -208,9 +218,37 @@ public class SendUtil {
                     TelegramSettingVo telegramSettingVo = JSON.parseObject(senderModel.getJsonSetting(), TelegramSettingVo.class);
                     if (telegramSettingVo != null) {
                         try {
-                            SenderTelegramMsg.sendMsg(handError, telegramSettingVo.getApiToken(), telegramSettingVo.getChatId(), smsVo.getMobile(), smsVo.getSmsVoForSend());
+                            SenderTelegramMsg.sendMsg(logId, handError, telegramSettingVo.getApiToken(), telegramSettingVo.getChatId(), smsVo.getMobile(), smsVo.getSmsVoForSend());
                         } catch (Exception e) {
+                            LogUtil.updateLog(logId, 0, e.getMessage());
                             Log.e(TAG, "senderSendMsg: SenderTelegramMsg error " + e.getMessage());
+                        }
+                    }
+                }
+                break;
+
+            case TYPE_SMS:
+                //try phrase json setting
+                if (senderModel.getJsonSetting() != null) {
+                    SmsSettingVo smsSettingVo = JSON.parseObject(senderModel.getJsonSetting(), SmsSettingVo.class);
+                    if (smsSettingVo != null) {
+                        //仅当无网络时启用
+                        if (true == smsSettingVo.getOnlyNoNetwork() && 0 != NetUtil.getNetWorkStatus()) {
+                            String msg = "仅当无网络时启用，当前网络状态：" + NetUtil.getNetWorkStatus();
+                            LogUtil.updateLog(logId, 0, msg);
+                            Log.d(TAG, msg);
+                            return;
+                        }
+                        try {
+                            int simSlot = smsSettingVo.getSimSlot() - 1;
+                            if (simSlot < 0) { //原进原出
+                                simSlot = Integer.parseInt(smsVo.getSimInfo().substring(3, 4)) - 1;
+                                Log.d(TAG, "simSlot = " + simSlot);
+                            }
+                            SenderSmsMsg.sendMsg(logId, handError, simSlot, smsSettingVo.getMobiles(), smsSettingVo.getOnlyNoNetwork(), smsVo.getMobile(), smsVo.getSmsVoForSend());
+                        } catch (Exception e) {
+                            LogUtil.updateLog(logId, 0, e.getMessage());
+                            Log.e(TAG, "senderSendMsg: SenderSmsMsg error " + e.getMessage());
                         }
                     }
                 }

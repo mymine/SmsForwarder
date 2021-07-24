@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 
+import com.idormy.sms.forwarder.utils.LogUtil;
 import com.smailnet.emailkit.Draft;
 import com.smailnet.emailkit.EmailKit;
 
@@ -13,9 +14,9 @@ import static com.idormy.sms.forwarder.SenderActivity.NOTIFY;
 public class SenderMailMsg {
     private static String TAG = "SenderMailMsg";
 
-    public static void sendEmail(final Handler handError, final String host, final String port, final boolean ssl, final String fromemail, final String pwd, final String toAdd, final String title, final String content) {
+    public static void sendEmail(final long logId, final Handler handError, final String host, final String port, final boolean ssl, final String fromemail, final String nickname, final String pwd, final String toAdd, final String title, final String content) {
 
-        Log.d(TAG, "sendEmail: host:" + host + " port:" + port + " ssl:" + ssl + " fromemail:" + fromemail + " pwd:" + pwd + " toAdd:" + toAdd);
+        Log.d(TAG, "sendEmail: host:" + host + " port:" + port + " ssl:" + ssl + " fromemail:" + fromemail + " nickname:" + nickname + " pwd:" + pwd + " toAdd:" + toAdd);
 
         try {
             //初始化框架
@@ -29,7 +30,7 @@ public class SenderMailMsg {
 
             //设置一封草稿邮件
             Draft draft = new Draft()
-                    .setNickname("SmsForwarder")   //发件人昵称
+                    .setNickname(nickname)   //发件人昵称
                     .setTo(toAdd)                  //收件人邮箱
                     .setSubject(title)             //邮件主题
                     .setText(content);             //邮件正文
@@ -39,7 +40,8 @@ public class SenderMailMsg {
                     .send(draft, new EmailKit.GetSendCallback() {
                         @Override
                         public void onSuccess() {
-                            Log.i(TAG, "发送成功！");
+                            LogUtil.updateLog(logId, 1, "发送成功");
+                            Log.i(TAG, "发送成功");
                             if (handError != null) {
                                 android.os.Message msg = new android.os.Message();
                                 msg.what = NOTIFY;
@@ -52,6 +54,7 @@ public class SenderMailMsg {
 
                         @Override
                         public void onFailure(String errMsg) {
+                            LogUtil.updateLog(logId, 0, errMsg);
                             Log.i(TAG, "发送失败，错误：" + errMsg);
                             if (handError != null) {
                                 android.os.Message msg = new android.os.Message();
@@ -68,6 +71,7 @@ public class SenderMailMsg {
             EmailKit.destroy();
 
         } catch (Exception e) {
+            LogUtil.updateLog(logId, 0, e.getMessage());
             Log.e(TAG, e.getMessage(), e);
             if (handError != null) {
                 android.os.Message msg = new android.os.Message();
